@@ -317,8 +317,41 @@ p <- c(0.75, 0.90, 0.90, 0.99, 0.99, 0.99)
 odds <- p / (1-p)
 averageMap <- c(mean(badBayes[[17]][1,]), mean(badBayes[[21]][1,]), mean(badBayes[[22]][1,]),
                 mean(badBayes[[25]][1,]), mean(badBayes[[26]][1,]), mean(badBayes[[27]][1,]))
+coverageRate <- function(b, odds){
+  cover <- apply(b, 2, function (x){ifelse(x[2] < odds && odds < x[3],TRUE,FALSE)}, simplify = TRUE)
+  return(sum(cover == TRUE) / 100)
+}
+cR <- c(coverageRate(badBayes[[17]], odds[1]), 
+        coverageRate(badBayes[[21]], odds[2]), 
+        coverageRate(badBayes[[22]], odds[3]),
+        coverageRate(badBayes[[25]], odds[4]), 
+        coverageRate(badBayes[[26]], odds[5]), 
+        coverageRate(badBayes[[27]], odds[6])
+        )
+dfBb <- data.frame(
+  "Sample Size" = n,
+  "Probability" = p,
+  "Odds" = odds,
+  "Mode" = averageMap,
+  "Coverage Rate" = cR
+)
   
 #Delta Method Histograms
 
-
+par(mfrow = c(3, 2), mar=c(4, 4, 2, 1), oma=c(0, 0, 4,0))
+dig <- seq(-10, 25, length.out = 1000)
+norm <- dnorm(dig, 0, sqrt(16*(0.5)*0.5))
+hist(p1Delta[[1]], main = "n = 10", xlab = "", probability = TRUE, breaks = 25)
+lines(dig, norm, col = "red", lwd = 2)
+hist(p1Delta[[2]], main = "n = 30", breaks = 10, xlab = "", probability = TRUE)
+lines(dig, norm, col = "red", lwd = 2)
+hist(p1Delta[[3]], main = "n = 50", breaks = 20, xlab = "", probability = TRUE)
+lines(dig, norm, col = "red", lwd = 2)
+hist(p1Delta[[4]], main = "n = 100", breaks = 20, xlab = "", probability = TRUE)
+lines(dig, norm, col = "red", lwd = 2)
+hist(p1Delta[[5]], main = "n = 500", breaks = 20, xlab = "", probability = TRUE)
+lines(dig, norm, col = "red", lwd = 2)
+hist(p1Delta[[6]], main = "n = 1000", breaks = 50, xlab = "", probability = TRUE)
+lines(dig, norm, col = "red", lwd = 2)
+mtext("Histograms of √N (g(X̄) − g(p))", outer = TRUE, cex=1, font = 2)
 
