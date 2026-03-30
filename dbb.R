@@ -56,8 +56,8 @@ remCol <- function(x, replaceZeros = TRUE) {
   return(x)
 }
 
-#Filter the lists to remove any samples of all 1's or all 0's, which
-#result in inappropriate estimation of the expectation and variance.
+#Filter the lists to remove any samples of all 1's, which
+#result in non-existent estimation of the vmean and variance.
 
 p2ListFiltered <- lapply(p2ListPerm, function (x) {remCol(x, replaceZeros = FALSE)})
 
@@ -74,17 +74,6 @@ deltaVar <- function (x) {
 
 p2ExpDelta <- lapply(p2ListFiltered, function (y) {apply(y, 2, expectation)})
 p2VarDelta <- lapply(p2ListFiltered, function (y) {apply(y, 2, deltaVar)})
-p2ExpDeltaP <- lapply(p2ListPerm, function (y) {apply(y, 2, expectation)})
-p2VarDeltaP <- lapply(p2ListPerm, function (y) {apply(y, 2, deltaVar)})
-
-v_delta <- apply(sims, 1, function(x) { x[2] / (x[1] * (1 - x[2])^3)}, simplify = "array")
-
-averageVarsFiltered <- lapply(p2VarDelta, function(x) {mean(x[is.finite(x)])})
-averageVarsPerm <- lapply(p2VarDeltaP, function(x) {mean(x[is.finite(x)])})
-averageExpFiltered <- lapply(p2ExpDelta, function(x) {mean(x[is.finite(x)])})
-averageExpPerm  <- lapply(p2ExpDeltaP, function(x) {mean(x[is.finite(x)])})
-
-cbind(averageVarsFiltered, averageVarsPerm, averageExpFiltered, averageExpPerm)
 
 ##Problem 2, Bootstrap Estimation
 
@@ -147,3 +136,189 @@ bootVarAverage <- lapply(p2VarBoot, function(x) {mean(x[is.finite(x)])})
 bootAverage <- lapply(p2ExpBoot, function(x) {mean(x[is.finite(x)])})
 
 cbind(averageVarsFiltered, bootVarAverage)
+
+##Problem 3, Bayesian estimation
+
+#Produce Bayesian Estimates of the Mean and Variance
+
+betaEst <- function(x) {
+  a <- sum(x == 1)
+  b <- sum(x == 0)
+  betaDraws <- rbeta(1000, (0.5 + a), (0.5 + b))
+  oddsDraws <- betaDraws / (1-betaDraws)
+  if ((b+0.5) < 2){
+    c(mean = NA_real_, var = NA_real_)
+  } else {
+    c(mean(oddsDraws), var(oddsDraws))
+  }
+}
+
+#Testing to see how often there is (at least) no posterior variance is available
+
+testBayes <- lapply(p2ListPerm, function(x) {apply(x, 2, betaEst)})
+totalNA <- lapply(testBayes, function(x) {sum(is.na(x[1,]))})
+
+#Alternative method: report mode and 95% confidence interval with coverage rate
+
+betaBad <- function(x) {
+  
+  a <- sum(x == 1) + 0.5
+  b <- sum(x == 0) + 0.5
+  m <- ifelse(a  < 1, 0, (a - 1)/(b + 1))
+  bConf <- qbeta(c(0.025, 0.975), a, b)
+  oddsConf <- bConf / (1 - bConf)
+  return(c(mode = m, confLow = oddsConf[1], confHigh = oddsConf[2]))
+  
+}
+
+badBayes <- lapply(p2ListPerm, function(x) {apply(x, 2, betaBad)})
+
+#Part 5, Plots and graphs
+
+##Box Plots of Means
+
+par(mfrow = c(2, 2), mar=c(4, 4, 2, 1), oma=c(0, 0, 4,0))
+for(i in 1:4){
+  boxplot(p2ExpDelta[[i]], p2ExpBoot[[i]], testBayes[[i]][1,], 
+          names = c("Delta Method", "Bootstrap", "Bayesian Analysis"), 
+          main = paste0("n = ", c(10, 30, 100, 1000)[i]), col = c("#5DA5A4", "#A3C4BC", "#E8D8C3"))
+  abline(h = (0.01)/(1-0.01), lty = 2)
+}
+mtext("Estimated Expectations of Odds, p = 0.01", outer = TRUE, cex = 1.5, font = 2)
+
+par(mfrow = c(2, 2), mar=c(4, 4, 2, 1), oma=c(0, 0, 4,0))
+for(i in 5:8){
+  boxplot(p2ExpDelta[[i]], p2ExpBoot[[i]], testBayes[[i]][1,], 
+          names = c("Delta Method", "Bootstrap", "Bayesian Analysis"), 
+          main = paste0("n = ", c(10, 30, 100, 1000)[i-4]), col = c("#5DA5A4", "#A3C4BC", "#E8D8C3"))
+  abline(h = (0.1)/(1-0.1), lty = 2)
+}
+mtext("Estimated Expectations of Odds, p = 0.10", outer = TRUE, cex = 1.5, font = 2)
+
+par(mfrow = c(2, 2), mar=c(4, 4, 2, 1), oma=c(0, 0, 4,0))
+for(i in 9:12){
+  boxplot(p2ExpDelta[[i]], p2ExpBoot[[i]], testBayes[[i]][1,], 
+          names = c("Delta Method", "Bootstrap", "Bayesian Analysis"), 
+          main = paste0("n = ", c(10, 30, 100, 1000)[i-8]), col = c("#5DA5A4", "#A3C4BC", "#E8D8C3"))
+  abline(h = (0.25)/(1-0.25), lty = 2)
+}
+mtext("Estimated Expectations of Odds, p = 0.25", outer = TRUE, cex = 1.5, font = 2)
+
+par(mfrow = c(2, 2), mar=c(4, 4, 2, 1), oma=c(0, 0, 4,0))
+for(i in 13:16){
+  boxplot(p2ExpDelta[[i]], p2ExpBoot[[i]], testBayes[[i]][1,], 
+          names = c("Delta Method", "Bootstrap", "Bayesian Analysis"), 
+          main = paste0("n = ", c(10, 30, 100, 1000)[i-12]), col = c("#5DA5A4", "#A3C4BC", "#E8D8C3"))
+  abline(h = (0.5)/(1-0.5), lty = 2)
+}
+mtext("Estimated Expectations of Odds, p = 0.50", outer = TRUE, cex = 1.5, font = 2)
+
+par(mfrow = c(2, 2), mar=c(4, 4, 2, 1), oma=c(0, 0, 4,0))
+for(i in 17:20){
+  boxplot(p2ExpDelta[[i]], p2ExpBoot[[i]], if(i == 17){badBayes[[17]][1,]}
+          else{testBayes[[i]][1,]}, 
+          names = c("Delta Method", "Bootstrap", "Bayesian Analysis"), 
+          main = paste0("n = ", c(10, 30, 100, 1000)[i-16]), col = c("#5DA5A4", "#A3C4BC", "#E8D8C3"))
+  abline(h = (0.75)/(1-0.75), lty = 2)
+}
+mtext("Estimated Expectations of Odds, p = 0.75", outer = TRUE, cex = 1.5, font = 2)
+
+par(mfrow = c(2, 2), mar=c(4, 4, 2, 1), oma=c(0, 0, 4,0))
+for(i in 21:24){
+  boxplot(p2ExpDelta[[i]], p2ExpBoot[[i]], if(i == 22){badBayes[[22]][1,]}
+          else if(i == 21){badBayes[[21]][1,]}
+          else{testBayes[[i]][1,]}, 
+          names = c("Delta Method", "Bootstrap", "Bayesian Analysis"), 
+          main = paste0("n = ", c(10, 30, 100, 1000)[i-20]), col = c("#5DA5A4", "#A3C4BC", "#E8D8C3"))
+  abline(h = (0.9)/(1-0.9), lty = 2)
+}
+mtext("Estimated Expectations of Odds, p = 0.90", outer = TRUE, cex = 1.5, font = 2)
+
+par(mfrow = c(2, 2), mar=c(4, 4, 2, 1), oma=c(0, 0, 4,0))
+for(i in 25:28){
+  boxplot(p2ExpDelta[[i]], p2ExpBoot[[i]], if(i == 25){badBayes[[25]][1,]}
+          else if(i == 26){badBayes[[26]][1,]}
+          else if(i == 27){badBayes[[27]][1,]}
+          else{testBayes[[i]][1,]}, 
+          names = c("Delta Method", "Bootstrap", "Bayesian Analysis"), 
+          main = paste0("n = ", c(10, 30, 100, 1000)[i-24]), col = c("#5DA5A4", "#A3C4BC", "#E8D8C3"))
+  abline(h = (0.99)/(1-0.99), lty = 2)
+}
+mtext("Estimated Expectations of Odds, p = 0.99", outer = TRUE, cex = 1.5, font = 2)
+
+#Boxplots of Variances
+
+par(mfrow = c(2, 2), mar=c(4, 4, 2, 1), oma=c(0, 0, 4,0))
+for(i in 1:4){
+  boxplot(p2VarDelta[[i]], p2VarBoot[[i]], testBayes[[i]][2,], 
+          names = c("Delta Method", "Bootstrap", "Bayesian Analysis"), 
+          main = paste0("n = ", c(10, 30, 100, 1000)[i]), col = c("#5DA5A4", "#A3C4BC", "#E8D8C3"))
+}
+mtext("Variances of Odds, p = 0.01", outer = TRUE, cex = 1.5, font = 2)
+
+par(mfrow = c(2, 2), mar=c(4, 4, 2, 1), oma=c(0, 0, 4,0))
+for(i in 5:8){
+  boxplot(p2VarDelta[[i]], p2VarBoot[[i]], testBayes[[i]][2,], 
+          names = c("Delta Method", "Bootstrap", "Bayesian Analysis"), 
+          main = paste0("n = ", c(10, 30, 100, 1000)[i-4]), col = c("#5DA5A4", "#A3C4BC", "#E8D8C3"))
+}
+mtext("Variances of Odds, p = 0.10", outer = TRUE, cex = 1.5, font = 2)
+
+par(mfrow = c(2, 2), mar=c(4, 4, 2, 1), oma=c(0, 0, 4,0))
+for(i in 9:12){
+  boxplot(p2VarDelta[[i]], p2VarBoot[[i]], testBayes[[i]][2,], 
+          names = c("Delta Method", "Bootstrap", "Bayesian Analysis"), 
+          main = paste0("n = ", c(10, 30, 100, 1000)[i-8]), col = c("#5DA5A4", "#A3C4BC", "#E8D8C3"))
+}
+mtext("Variances of Odds, p = 0.25", outer = TRUE, cex = 1.5, font = 2)
+
+par(mfrow = c(2, 2), mar=c(4, 4, 2, 1), oma=c(0, 0, 4,0))
+for(i in 13:16){
+  boxplot(p2VarDelta[[i]], p2VarBoot[[i]], testBayes[[i]][2,], 
+          names = c("Delta Method", "Bootstrap", "Bayesian Analysis"), 
+          main = paste0("n = ", c(10, 30, 100, 1000)[i-12]), col = c("#5DA5A4", "#A3C4BC", "#E8D8C3"))
+}
+mtext("Variances of Odds, p = 0.50", outer = TRUE, cex = 1.5, font = 2)
+
+par(mfrow = c(2, 2), mar=c(4, 4, 2, 1), oma=c(0, 0, 4,0))
+for(i in 17:20){
+  boxplot(p2VarDelta[[i]], p2VarBoot[[i]], if(i == 17){NULL}
+          else{testBayes[[i]][2,]}, 
+          names = if(i ==17){c("Delta Method", "Bootstrap", "Bayesian Analysis*")}
+          else{c("Delta Method", "Bootstrap", "Bayesian Analysis")}, 
+          main = paste0("n = ", c(10, 30, 100, 1000)[i-16]), col = c("#5DA5A4", "#A3C4BC", "#E8D8C3"))
+}
+mtext("Variances of Odds, p = 0.75", outer = TRUE, cex = 1.5, font = 2)
+
+par(mfrow = c(2, 2), mar=c(4, 4, 2, 1), oma=c(0, 0, 4,0))
+for(i in 21:24){
+  boxplot(p2VarDelta[[i]], p2VarBoot[[i]], if(i == 22 | i == 21){}
+          else{testBayes[[i]][2,]}, 
+          names = if(i == 22| i == 21){c("Delta Method", "Bootstrap", "Bayesian Analysis*")}
+          else{c("Delta Method", "Bootstrap", "Bayesian Analysis")}, 
+          main = paste0("n = ", c(10, 30, 100, 1000)[i-20]), col = c("#5DA5A4", "#A3C4BC", "#E8D8C3"))
+}
+mtext("Variances of Odds, p = 0.90", outer = TRUE, cex = 1.5, font = 2)
+
+par(mfrow = c(2, 2), mar=c(4, 4, 2, 1), oma=c(0, 0, 4,0))
+for(i in 25:28){
+  boxplot(p2VarDelta[[i]], p2VarBoot[[i]], if(i == 25 | i == 26 | i == 27){}
+          else{testBayes[[i]][2,]}, 
+          names = if(i == 25|i == 26|i == 27){c("Delta Method", "Bootstrap", "Bayesian Analysis*")}
+          else{c("Delta Method", "Bootstrap", "Bayesian Analysis")},
+          main = paste0("n = ", c(10, 30, 100, 1000)[i-24]), col = c("#5DA5A4", "#A3C4BC", "#E8D8C3"))
+}
+mtext("Variances of Odds, p = 0.99", outer = TRUE, cex = 1.5, font = 2)
+
+# Table of Confidence Intervals and MAPs
+
+n <- c(10, 10, 30, 10, 30, 100)
+p <- c(0.75, 0.90, 0.90, 0.99, 0.99, 0.99)
+odds <- p / (1-p)
+averageMap <- c(mean(badBayes[[17]][1,]), mean(badBayes[[21]][1,]), mean(badBayes[[22]][1,]),
+                mean(badBayes[[25]][1,]), mean(badBayes[[26]][1,]), mean(badBayes[[27]][1,]))
+  
+#Delta Method Histograms
+
+
+
